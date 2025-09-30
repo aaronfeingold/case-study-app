@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: "/home/aaronfeingold/Code/stryker/new-frontend/case-study",
+  },
 };
 
 export default nextConfig;
