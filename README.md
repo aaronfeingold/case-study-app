@@ -5,7 +5,7 @@ Next.js application with Better Auth authentication, admin user management, and 
 ## Documentation
 
 - **[WebSocket Quick Start](./docs/WEBSOCKET_QUICKSTART.md)** - Get started with real-time invoice processing
-- **[WebSocket Architecture](./docs/architecture/websocket-integration.md)** - Complete architecture documentation
+- **[WebSocket Architecture](./docs/WEBSOCKET_INTEGRATION.md)** - Complete architecture documentation
 
 ## Prerequisites
 
