@@ -15,7 +15,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "InvoiceAI - Transform Invoices Into Structured Data",
+  title: "DoxIn - Transform Invoices Into Structured Data",
   description: "AI-powered invoice extraction with industry-leading accuracy",
 };
 

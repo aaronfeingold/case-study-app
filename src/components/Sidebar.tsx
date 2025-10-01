@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronLeft,
@@ -12,7 +13,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Sparkles,
   User,
   Bell,
   Briefcase,
@@ -100,11 +100,17 @@ export function Sidebar() {
       <div className="h-16 border-b border-sidebar-border flex items-center justify-between px-4">
         {!isCollapsed && (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-sidebar-primary-foreground" />
+            <div className="w-8 h-8 flex items-center justify-center">
+              <Image
+                src="/doxin.png"
+                alt="DoxIn Logo"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+              />
             </div>
             <span className="text-lg font-semibold text-sidebar-foreground">
-              InvoiceAI
+              DoxIn
             </span>
           </div>
         )}

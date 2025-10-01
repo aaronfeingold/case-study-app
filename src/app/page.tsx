@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Sparkles,
   ArrowRight,
@@ -20,10 +21,16 @@ export default function Page() {
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-background" />
+              <div className="w-10 h-10 flex items-center justify-center">
+                <Image
+                  src="/doxin.png"
+                  alt="DoxIn Logo"
+                  width={40}
+                  height={40}
+                  className="w-10 h-10"
+                />
               </div>
-              <span className="text-xl font-semibold">InvoiceAI</span>
+              <span className="text-xl font-semibold">DoxIn</span>
             </div>
             <div className="flex items-center gap-4">
               <Link
@@ -91,14 +98,14 @@ export default function Page() {
                     <FileText className="h-4 w-4" />
                     <span>Before</span>
                   </div>
-                  <div className="bg-secondary/50 rounded-lg p-6 border border-border min-h-[240px]">
-                    <div className="space-y-3">
-                      <div className="h-3 bg-muted/30 rounded w-3/4"></div>
-                      <div className="h-3 bg-muted/30 rounded w-full"></div>
-                      <div className="h-3 bg-muted/30 rounded w-5/6"></div>
-                      <div className="h-16 bg-muted/20 rounded mt-6"></div>
-                      <div className="h-3 bg-muted/30 rounded w-2/3"></div>
-                    </div>
+                  <div className="bg-secondary/50 rounded-lg p-6 border border-border min-h-[240px] flex items-center justify-center">
+                    <Image
+                      src="/unhappy.png"
+                      alt="Before processing - unstructured invoice"
+                      width={400}
+                      height={400}
+                      className="w-full h-auto"
+                    />
                   </div>
                 </div>
 
@@ -108,31 +115,14 @@ export default function Page() {
                     <Sparkles className="h-4 w-4" />
                     <span>After AI Processing</span>
                   </div>
-                  <div className="bg-secondary rounded-lg p-6 border border-border min-h-[240px]">
-                    <div className="space-y-4 text-sm font-mono">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          Invoice #:
-                        </span>
-                        <span className="font-semibold">INV-2025-001</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-semibold">2025-09-30</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total:</span>
-                        <span className="font-semibold">$1,234.56</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Items:</span>
-                        <span className="font-semibold">5</span>
-                      </div>
-                      <div className="flex items-center justify-center gap-2 mt-6 pt-4 border-t border-border">
-                        <CheckCircle2 className="h-5 w-5 text-foreground" />
-                        <span className="text-sm font-semibold">Validated</span>
-                      </div>
-                    </div>
+                  <div className="bg-secondary rounded-lg p-6 border border-border min-h-[240px] flex items-center justify-center">
+                    <Image
+                      src="/happy.png"
+                      alt="After processing - structured data"
+                      width={400}
+                      height={400}
+                      className="w-full h-auto"
+                    />
                   </div>
                 </div>
               </div>
@@ -511,10 +501,16 @@ export default function Page() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
-                  <Sparkles className="h-5 w-5 text-background" />
+                <div className="w-10 h-10 flex items-center justify-center">
+                  <Image
+                    src="/doxin.png"
+                    alt="DoxIn Logo"
+                    width={40}
+                    height={40}
+                    className="w-10 h-10"
+                  />
                 </div>
-                <span className="text-xl font-bold">InvoiceAI</span>
+                <span className="text-xl font-bold">DoxIn</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 AI-powered invoice processing for modern businesses
@@ -593,7 +589,7 @@ export default function Page() {
             </div>
           </div>
           <div className="border-t border-border pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2025 InvoiceAI. All rights reserved.</p>
+            <p>&copy; 2025 DoxIn. All rights reserved.</p>
           </div>
         </div>
       </footer>

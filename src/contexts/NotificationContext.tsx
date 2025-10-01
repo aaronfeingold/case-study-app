@@ -70,6 +70,7 @@ export function NotificationProvider({
           headers: {
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({}),
         }
       );
 
@@ -125,10 +126,11 @@ export function NotificationProvider({
     [refreshUnreadCount]
   );
 
-  // Initial fetch on mount
+  // Initial fetch on mount (only if user is authenticated)
   useEffect(() => {
+    if (!user?.id) return;
     refreshUnreadCount();
-  }, [refreshUnreadCount]);
+  }, [user?.id, refreshUnreadCount]);
 
   // Setup WebSocket connection for user notifications
   useEffect(() => {
@@ -156,8 +158,29 @@ export function NotificationProvider({
     socket.on("user_notification", (data: any) => {
       console.log("Received user notification:", data);
 
-      // The jobs watcher useEffect handles both unread count and toasts
-      // This just logs for debugging purposes
+      // Handle job completion/failure notifications directly
+      if (data.type === "job_completed") {
+        // Increment unread count immediately
+        setUnreadCount((prev) => prev + 1);
+
+        // Show notification toast
+        toast.success(
+          `Processing completed for ${data.filename || "your file"}`,
+          {
+            description: "Click the notification bell to view results",
+            duration: 5000,
+          }
+        );
+      } else if (data.type === "job_failed") {
+        // Increment unread count for failed jobs too
+        setUnreadCount((prev) => prev + 1);
+
+        // Show error notification
+        toast.error(`Processing failed for ${data.filename || "your file"}`, {
+          description: data.error || "Check job details for more information",
+          duration: 5000,
+        });
+      }
     });
 
     notificationSocketRef.current = socket;
@@ -168,6 +191,8 @@ export function NotificationProvider({
   }, [user?.id]);
 
   // Listen to WebSocket job updates in real-time
+  // Note: Toasts are now handled by user_notification WebSocket events to avoid duplicates
+  // This effect just ensures unread count stays in sync with jobs Map for edge cases
   useEffect(() => {
     const previousJobs = previousJobsRef.current;
 
@@ -176,24 +201,12 @@ export function NotificationProvider({
 
       // Check if job just completed or failed
       if (previousJob && previousJob.status !== job.status) {
-        if (job.status === "completed") {
-          // Increment unread count immediately
-          setUnreadCount((prev) => prev + 1);
-
-          // Show notification toast
-          toast.success(`Processing completed for ${job.filename}`, {
-            description: "Click the notification bell to view results",
-            duration: 5000,
-          });
-        } else if (job.status === "failed") {
-          // Increment unread count for failed jobs too
-          setUnreadCount((prev) => prev + 1);
-
-          // Show error notification
-          toast.error(`Processing failed for ${job.filename}`, {
-            description: job.error || "Check job details for more information",
-            duration: 5000,
-          });
+        if (job.status === "completed" || job.status === "failed") {
+          // Note: unread count increment and toasts are handled by user_notification event
+          // This is just a fallback in case the user_notification event doesn't fire
+          console.log(
+            `Job ${taskId} status changed to ${job.status}, user_notification event should handle notifications`
+          );
         }
       }
     });

@@ -31,6 +31,9 @@ export default function SignInPage() {
         password,
       });
 
+      // Track login event
+      await fetch("/api/auth/track-login", { method: "POST" });
+
       toast.success("Signed in successfully!");
 
       const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard";

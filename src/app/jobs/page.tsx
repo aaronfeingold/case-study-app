@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import {
@@ -12,9 +13,11 @@ import {
   FileText,
   ChevronRight,
   BellOff,
+  ChevronLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import InvoiceReviewModal from "@/components/InvoiceReviewModal";
 
 interface Job {
   id: string;
@@ -80,7 +83,20 @@ const statusConfig = {
   },
 };
 
+// Helper function to check if an error message indicates a duplicate
+function isDuplicateError(message: string | undefined): boolean {
+  if (!message) return false;
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes("already been processed") ||
+    lowerMessage.includes("already exists") ||
+    lowerMessage.includes("duplicate") ||
+    lowerMessage.includes("exists in the system")
+  );
+}
+
 export default function JobsPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { markAllAsRead, markJobAsRead, refreshUnreadCount, unreadCount } =
     useNotifications();
@@ -90,11 +106,33 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isClearing, setIsClearing] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
+  const [reviewModalTaskId, setReviewModalTaskId] = useState<string | null>(
+    null
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Redirect to home if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push("/");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     markAllAsRead();
   }, [markAllAsRead]);
+
+  // Reset to page 1 when status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
+
+  // Calculate paginated jobs
+  const totalPages = Math.ceil(jobs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedJobs = jobs.slice(startIndex, endIndex);
 
   const fetchJobs = async () => {
     try {
@@ -171,69 +209,20 @@ export default function JobsPage() {
     }
   };
 
-  const handleApproveInvoice = async (taskId: string) => {
-    setIsApproving(true);
-    try {
-      const backendUrl =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
-      const response = await fetch(
-        `${backendUrl}/api/v1/invoices/approve/${taskId}`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success("Invoice approved and saved successfully!");
-
-        // Update the selected job with the returned job data from backend
-        if (data.job) {
-          setSelectedJob(data.job);
-        }
-
-        // Refresh the jobs list
-        await fetchJobs();
-      } else if (response.status === 409) {
-        // Handle duplicate detection
-        const data = await response.json();
-        toast.warning(
-          data.message ||
-            "This invoice is a duplicate and was not inserted into the database."
-        );
-
-        // Update the selected job with the returned job data from backend
-        if (data.job) {
-          setSelectedJob(data.job);
-        }
-
-        // Refresh the jobs list to show updated status
-        await fetchJobs();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to approve invoice");
-      }
-    } catch (error) {
-      console.error("Error approving invoice:", error);
-      toast.error("Failed to approve invoice");
-    } finally {
-      setIsApproving(false);
-    }
+  const handleOpenReviewModal = (taskId: string) => {
+    setReviewModalTaskId(taskId);
   };
 
-  if (authLoading) {
+  const handleApproveFromModal = async () => {
+    // Close the detail modal and refresh
+    setSelectedJob(null);
+    await fetchJobs();
+  };
+
+  if (authLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-foreground">Please sign in to view jobs</p>
       </div>
     );
   }
@@ -365,89 +354,176 @@ export default function JobsPage() {
               </p>
             </div>
           ) : (
-            jobs.map((job) => {
-              const config =
-                statusConfig[job.status as keyof typeof statusConfig];
-              const StatusIcon = config?.icon || Clock;
+            <>
+              {paginatedJobs.map((job) => {
+                const config =
+                  statusConfig[job.status as keyof typeof statusConfig];
+                const StatusIcon = config?.icon || Clock;
 
-              return (
-                <div
-                  key={job.id}
-                  onClick={() => handleJobClick(job)}
-                  className={cn(
-                    "bg-card border rounded-lg p-4 transition-all",
-                    config?.borderColor || "border-border",
-                    (job.status === "completed" || job.status === "failed") &&
-                      "cursor-pointer hover:shadow-md"
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div
-                        className={cn(
-                          "p-3 rounded-lg",
-                          config?.bgColor || "bg-gray-50"
-                        )}
-                      >
-                        <StatusIcon
+                return (
+                  <div
+                    key={job.id}
+                    onClick={() => handleJobClick(job)}
+                    className={cn(
+                      "bg-card border rounded-lg p-4 transition-all",
+                      config?.borderColor || "border-border",
+                      (job.status === "completed" || job.status === "failed") &&
+                        "cursor-pointer hover:shadow-md"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div
                           className={cn(
-                            "h-6 w-6",
-                            config?.color || "text-gray-600",
-                            job.status === "processing" && "animate-spin"
+                            "p-3 rounded-lg",
+                            config?.bgColor || "bg-gray-50"
                           )}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-foreground">
-                            {job.job_type || "Invoice Processing"}
-                          </h3>
-                          <span
+                        >
+                          <StatusIcon
                             className={cn(
-                              "px-2 py-0.5 rounded-full text-xs font-medium",
-                              config?.bgColor,
-                              config?.color
+                              "h-6 w-6",
+                              config?.color || "text-gray-600",
+                              job.status === "processing" && "animate-spin"
                             )}
-                          >
-                            {config?.label || job.status}
-                          </span>
+                          />
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {job.current_stage ||
-                            `Created ${new Date(job.created_at).toLocaleString()}`}
-                        </p>
-                        {job.error_message && (
-                          <p className="text-sm text-red-600 mt-1">
-                            {job.error_message}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-foreground">
+                              {job.job_type || "Invoice Processing"}
+                            </h3>
+                            <span
+                              className={cn(
+                                "px-2 py-0.5 rounded-full text-xs font-medium",
+                                config?.bgColor,
+                                config?.color
+                              )}
+                            >
+                              {config?.label || job.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {job.current_stage ||
+                              `Created ${new Date(job.created_at).toLocaleString()}`}
                           </p>
+                          {job.error_message && (
+                            <p className="text-sm text-red-600 mt-1">
+                              {job.error_message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {job.status === "processing" && (
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-foreground">
+                              {job.progress}%
+                            </p>
+                            <div className="w-32 h-2 bg-gray-200 rounded-full mt-1">
+                              <div
+                                className="h-full bg-blue-600 rounded-full transition-all"
+                                style={{ width: `${job.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {(job.status === "completed" ||
+                          job.status === "failed") && (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {job.status === "processing" && (
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-foreground">
-                            {job.progress}%
-                          </p>
-                          <div className="w-32 h-2 bg-gray-200 rounded-full mt-1">
-                            <div
-                              className="h-full bg-blue-600 rounded-full transition-all"
-                              style={{ width: `${job.progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {(job.status === "completed" ||
-                        job.status === "failed") && (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      )}
                     </div>
                   </div>
+                );
+              })}
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-6 border-t border-border">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1} to{" "}
+                    {Math.min(endIndex, jobs.length)} of {jobs.length} jobs
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
+                      disabled={currentPage === 1}
+                      className={cn(
+                        "flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                        currentPage === 1
+                          ? "bg-card border border-border text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-card border border-border text-foreground hover:bg-accent"
+                      )}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((page) => {
+                          // Show first page, last page, current page, and adjacent pages
+                          return (
+                            page === 1 ||
+                            page === totalPages ||
+                            Math.abs(page - currentPage) <= 1
+                          );
+                        })
+                        .map((page, index, array) => {
+                          // Add ellipsis if there's a gap
+                          const showEllipsisBefore =
+                            index > 0 && page - array[index - 1] > 1;
+                          return (
+                            <React.Fragment key={page}>
+                              {showEllipsisBefore && (
+                                <span className="px-2 text-muted-foreground">
+                                  ...
+                                </span>
+                              )}
+                              <button
+                                onClick={() => setCurrentPage(page)}
+                                className={cn(
+                                  "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                                  currentPage === page
+                                    ? "bg-foreground text-background"
+                                    : "bg-card border border-border text-foreground hover:bg-accent"
+                                )}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className={cn(
+                        "flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                        currentPage === totalPages
+                          ? "bg-card border border-border text-muted-foreground cursor-not-allowed opacity-50"
+                          : "bg-card border border-border text-foreground hover:bg-accent"
+                      )}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              );
-            })
+              )}
+            </>
           )}
         </div>
+
+        {/* Invoice Review Modal */}
+        <InvoiceReviewModal
+          taskId={reviewModalTaskId}
+          isOpen={!!reviewModalTaskId}
+          onClose={() => setReviewModalTaskId(null)}
+          onApprove={handleApproveFromModal}
+        />
 
         {/* Job Details Modal */}
         {selectedJob && (
@@ -529,25 +605,18 @@ export default function JobsPage() {
                             </div>
                             {selectedJob.status === "completed" &&
                               selectedJob.result_data.extraction_result
-                                ?.success && (
+                                ?.success &&
+                              !isDuplicateError(
+                                selectedJob.result_data.save_skip_reason
+                              ) && (
                                 <button
                                   onClick={() =>
-                                    handleApproveInvoice(selectedJob.id)
+                                    handleOpenReviewModal(selectedJob.id)
                                   }
-                                  disabled={isApproving}
-                                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                                 >
-                                  {isApproving ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                      <span>Approving...</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <CheckCircle2 className="h-4 w-4" />
-                                      <span>Approve & Save to Database</span>
-                                    </>
-                                  )}
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Review & Approve Invoice</span>
                                 </button>
                               )}
                           </div>

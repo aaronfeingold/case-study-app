@@ -37,6 +37,9 @@ export default function SignupPage() {
         name,
       });
 
+      // Track initial login event
+      await fetch("/api/auth/track-login", { method: "POST" });
+
       toast.success("Account created successfully!");
       router.push("/dashboard");
     } catch (error) {

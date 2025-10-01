@@ -21,7 +21,7 @@ export default function DashboardPage() {
     const fetchStats = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/dashboard/stats`,
+          `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/dashboard/stats`,
           {
             credentials: "include",
           }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   FileText,
@@ -74,6 +75,7 @@ const paymentStatusColors: Record<string, string> = {
 };
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [pagination, setPagination] = useState({
@@ -150,6 +152,13 @@ export default function InvoicesPage() {
     }
   };
 
+  // Redirect to home if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push("/");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       fetchInvoices();
@@ -202,18 +211,10 @@ export default function InvoicesPage() {
     });
   };
 
-  if (authLoading) {
+  if (authLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-foreground" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-foreground">Please sign in to view invoices</p>
       </div>
     );
   }

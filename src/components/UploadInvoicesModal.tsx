@@ -9,9 +9,11 @@ import {
   AlertCircle,
   FileText,
   Clock,
+  Eye,
 } from "lucide-react";
 import { useProcessing } from "@/contexts/ProcessingContext";
 import { toast } from "sonner";
+import InvoiceReviewModal from "./InvoiceReviewModal";
 
 type ModelProvider = "openai" | "anthropic";
 
@@ -29,11 +31,13 @@ export default function UploadInvoicesModal({
   const [files, setFiles] = useState<File[]>([]);
   const [model, setModel] = useState<ModelProvider>("openai");
   const [confidence, setConfidence] = useState<number>(0.8);
-  const [humanInLoop, setHumanInLoop] = useState<boolean>(true);
+  const [humanInLoop, setHumanInLoop] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trackingTaskIds, setTrackingTaskIds] = useState<string[]>([]);
   const [showProgress, setShowProgress] = useState(false);
+  const [reviewTaskId, setReviewTaskId] = useState<string | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Debug: log tracked jobs when they change
   useEffect(() => {
@@ -76,6 +80,18 @@ export default function UploadInvoicesModal({
     return trackedJobs.every(
       (job) => job?.status === "completed" || job?.status === "failed"
     );
+  }, [trackedJobs]);
+
+  // Count successful and failed jobs
+  const jobStats = useMemo(() => {
+    const completed = trackedJobs.filter(
+      (job) => job?.status === "completed"
+    ).length;
+    const failed = trackedJobs.filter((job) => job?.status === "failed").length;
+    const processing = trackedJobs.filter(
+      (job) => job?.status === "processing"
+    ).length;
+    return { completed, failed, processing, total: trackedJobs.length };
   }, [trackedJobs]);
 
   const handleChoose = () => inputRef.current?.click();
@@ -139,8 +155,25 @@ export default function UploadInvoicesModal({
       setError(null);
       setShowProgress(false);
       setTrackingTaskIds([]);
+      setReviewTaskId(null);
       onClose();
     }
+  };
+
+  const handleViewResults = (taskId: string) => {
+    setReviewTaskId(taskId);
+    setShowReviewModal(true);
+  };
+
+  const handleReviewModalClose = () => {
+    setShowReviewModal(false);
+    setReviewTaskId(null);
+  };
+
+  const handleApproveSuccess = () => {
+    // Refresh or handle successful approval
+    toast.success("Invoice saved successfully!");
+    handleReviewModalClose();
   };
 
   if (!isOpen) return null;
@@ -200,35 +233,81 @@ export default function UploadInvoicesModal({
             <>
               <div className="space-y-4">
                 {/* Overall Progress */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div
+                  className={`rounded-lg p-4 ${
+                    jobStats.failed > 0 && allJobsComplete
+                      ? "bg-red-50 border border-red-200"
+                      : jobStats.failed > 0
+                        ? "bg-yellow-50 border border-yellow-200"
+                        : "bg-blue-50 border border-blue-200"
+                  }`}
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-900">
+                      <Clock
+                        className={`h-5 w-5 ${
+                          jobStats.failed > 0 && allJobsComplete
+                            ? "text-red-600"
+                            : jobStats.failed > 0
+                              ? "text-yellow-600"
+                              : "text-blue-600"
+                        }`}
+                      />
+                      <span
+                        className={`text-sm font-medium ${
+                          jobStats.failed > 0 && allJobsComplete
+                            ? "text-red-900"
+                            : jobStats.failed > 0
+                              ? "text-yellow-900"
+                              : "text-blue-900"
+                        }`}
+                      >
                         Processing {trackedJobs.length} file
                         {trackedJobs.length > 1 ? "s" : ""}
                       </span>
                     </div>
-                    <span className="text-sm font-semibold text-blue-900">
+                    <span
+                      className={`text-sm font-semibold ${
+                        jobStats.failed > 0 && allJobsComplete
+                          ? "text-red-900"
+                          : jobStats.failed > 0
+                            ? "text-yellow-900"
+                            : "text-blue-900"
+                      }`}
+                    >
                       {overallProgress}%
                     </span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div
+                    className={`w-full rounded-full h-2 ${
+                      jobStats.failed > 0 && allJobsComplete
+                        ? "bg-red-200"
+                        : jobStats.failed > 0
+                          ? "bg-yellow-200"
+                          : "bg-blue-200"
+                    }`}
+                  >
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        jobStats.failed > 0 && allJobsComplete
+                          ? "bg-red-600"
+                          : jobStats.failed > 0
+                            ? "bg-yellow-600"
+                            : "bg-blue-600"
+                      }`}
                       style={{ width: `${overallProgress}%` }}
                     />
                   </div>
                 </div>
 
-                {/* Individual Job Progress */}
+                {/* Individual Job Status */}
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {trackedJobs.map((job) => (
                     <div
                       key={job.task_id}
                       className="bg-gray-50 border border-gray-200 rounded-lg p-3"
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
                           <span className="text-sm text-gray-700 truncate">
@@ -237,7 +316,16 @@ export default function UploadInvoicesModal({
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {job.status === "completed" && (
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <>
+                              <button
+                                onClick={() => handleViewResults(job.task_id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              >
+                                <Eye className="h-3 w-3" />
+                                View Results
+                              </button>
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            </>
                           )}
                           {job.status === "failed" && (
                             <AlertCircle className="h-4 w-4 text-red-600" />
@@ -245,22 +333,7 @@ export default function UploadInvoicesModal({
                           {job.status === "processing" && (
                             <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
                           )}
-                          <span className="text-xs font-medium text-gray-600">
-                            {job.progress}%
-                          </span>
                         </div>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div
-                          className={`h-1.5 rounded-full transition-all duration-300 ${
-                            job.status === "completed"
-                              ? "bg-green-600"
-                              : job.status === "failed"
-                                ? "bg-red-600"
-                                : "bg-blue-600"
-                          }`}
-                          style={{ width: `${job.progress}%` }}
-                        />
                       </div>
                       {job.error && (
                         <div className="mt-2 text-xs text-red-600">
@@ -269,7 +342,7 @@ export default function UploadInvoicesModal({
                       )}
                       {job.status === "completed" && (
                         <div className="mt-2 text-xs text-green-600">
-                          Completed successfully
+                          Completed successfully - Click to review
                         </div>
                       )}
                     </div>
@@ -278,12 +351,33 @@ export default function UploadInvoicesModal({
 
                 {/* Completion Message */}
                 {allJobsComplete && (
-                  <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>
-                      All processing complete! You can close this modal.
-                    </span>
-                  </div>
+                  <>
+                    {jobStats.failed === 0 ? (
+                      <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>
+                          All processing complete! You can close this modal.
+                        </span>
+                      </div>
+                    ) : jobStats.completed > 0 ? (
+                      <div className="flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>
+                          Processing complete with errors: {jobStats.completed}{" "}
+                          succeeded, {jobStats.failed} failed. You can close
+                          this modal.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>
+                          All files failed to process. Please check the errors
+                          above and try again.
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -466,6 +560,14 @@ export default function UploadInvoicesModal({
           )}
         </div>
       </div>
+
+      {/* Review Modal */}
+      <InvoiceReviewModal
+        taskId={reviewTaskId}
+        isOpen={showReviewModal}
+        onClose={handleReviewModalClose}
+        onApprove={handleApproveSuccess}
+      />
     </div>
   );
 }
